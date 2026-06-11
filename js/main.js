@@ -54,7 +54,7 @@ export default class Main {
         ctx.fillRect(0, 0, w, h)
 
         //中线
-        ctx.stokeStyle = "#555"
+        ctx.strokeStyle = "#555"
         ctx.beginPath()
         ctx.moveTo(w / 2, 0)
         ctx.lineTo(w / 2, h)
@@ -76,7 +76,7 @@ export default class Main {
 
         //左右堆叠显示
         this.drawStack(50, h - 50, c.leftWeight, "#4caf50")
-        this.drawStack(w - 100, h - 50, c.rightWeight, "#21906f3")
+        this.drawStack(w - 100, h - 50, c.rightWeight, "#2196f3")
 
         //成功失败提示
         if (c.state === "success") {
