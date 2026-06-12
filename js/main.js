@@ -1,6 +1,11 @@
 // js/main.js
 
 const GameController = require("./core/gameController");
+const Hud = require("./view/hud");
+const BasketView = require("./view/basketView");
+const FeedbackView = require("./view/feedbackView");
+const ResultView = require("./view/resultView");
+const SoundManager = require("./core/soundManager");
 
 export default class Main {
     constructor() {
@@ -9,8 +14,14 @@ export default class Main {
         this.canvas = wx.createCanvas()
         console.log('[BOOT] canvas created:', !!this.canvas)
         this.ctx = this.canvas.getContext('2d')
+        this.setupCanvas()
 
         this.controller = new GameController();
+        this.hud = new Hud();
+        this.basketView = new BasketView();
+        this.feedbackView = new FeedbackView();
+        this.resultView = new ResultView();
+        this.soundManager = new SoundManager();
         this.controller.start();
 
         this.lastTime = Date.now();
@@ -29,6 +40,7 @@ export default class Main {
         this.lastTime = now;
 
         this.controller.tick(dt);
+        this.dispatchFeedbackEvents(dt);
 
         this.render()
 
@@ -36,69 +48,75 @@ export default class Main {
     }
 
     onTouchStart(e) {
-        const screenWidth = wx.getSystemInfoSync().screenWidth;
+        if (this.controller.state === "success" || this.controller.state === "fail") {
+            this.controller.start();
+            this.feedbackView.reset();
+            return;
+        }
+
         const x = e.touches[0].clientX;
-        this.controller.handleTap(x < screenWidth / 2 ? "left" : "right");
+        this.controller.handleTap(x < this.screenWidth / 2 ? "left" : "right");
+        this.dispatchFeedbackEvents(0);
+    }
+
+    dispatchFeedbackEvents(dt) {
+        const feedbackEvents = this.controller.consumeFeedbackEvents();
+
+        this.feedbackView.update(
+            dt,
+            feedbackEvents,
+            this.screenWidth,
+            this.screenHeight,
+            this.hudHeight
+        );
+        if (feedbackEvents.length > 0) {
+            this.soundManager.update(feedbackEvents);
+        }
+    }
+
+    setupCanvas() {
+        const info = wx.getSystemInfoSync();
+        this.dpr = info.pixelRatio || 1;
+        this.screenWidth = info.windowWidth || info.screenWidth;
+        this.screenHeight = info.windowHeight || info.screenHeight;
+        this.safeTop = info.safeArea ? info.safeArea.top : 0;
+        this.hudHeight = 126;
+        this.menuButton = this.getMenuButtonRect();
+
+        this.canvas.width = this.screenWidth * this.dpr;
+        this.canvas.height = this.screenHeight * this.dpr;
+
+        this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+        this.ctx.imageSmoothingEnabled = false;
     }
 
     render() {
         const ctx = this.ctx
         const c = this.controller
-        const w = this.canvas.width
-        const h = this.canvas.height
+        const w = this.screenWidth
+        const h = this.screenHeight
 
         ctx.clearRect(0, 0, w, h)
 
-        // 背景
-        ctx.fillStyle = "#222"
-        ctx.fillRect(0, 0, w, h)
+        const shake = this.feedbackView.getShakeOffset()
+        ctx.save()
+        ctx.translate(shake.x, shake.y)
+        this.basketView.render(ctx, c, w, h, this.hudHeight)
+        ctx.restore()
 
-        //中线
-        ctx.strokeStyle = "#555"
-        ctx.beginPath()
-        ctx.moveTo(w / 2, 0)
-        ctx.lineTo(w / 2, h)
-        ctx.stroke()
-
-        //顶部信息
-        ctx.fillStyle = "#fff"
-        ctx.font = "20px Arial"
-        ctx.fillText(`Time: ${c.timeLeft.toFixed(1)}`, 20, 30)
-        ctx.fillText(`Score: ${c.totalValue}`, 20, 60)
-
-        //当前货物
-        if (c.currentGood) {
-            ctx.fillStyle = "#f5c542"
-            ctx.fillRect(w / 2 - 30, 100, 60, 60)
-            ctx.fillStyle = "#000"
-            ctx.fillText(`${c.currentGood.weight}`, w / 2 - 10, 140)
-        }
-
-        //左右堆叠显示
-        this.drawStack(50, h - 50, c.leftWeight, "#4caf50")
-        this.drawStack(w - 100, h - 50, c.rightWeight, "#2196f3")
-
-        //成功失败提示
-        if (c.state === "success") {
-            ctx.fillStyle = "#00ff00"
-            ctx.font = "40px Arial"
-            ctx.fillText("SUCCESS", w / 2 - 100, h / 2)
-        }
-        if (c.state === "fail") {
-            ctx.fillStyle = "#ff0000"
-            ctx.font = "40px Arial"
-            ctx.fillText("FAIL", w / 2 - 60, h / 2)
-        }
+        this.feedbackView.render(ctx, w, h)
+        this.hud.render(ctx, c, w)
+        this.resultView.render(ctx, c, w, h)
     }
 
-    drawStack(x, bottomY, weight, color) {
-        const ctx = this.ctx
-        const blockHeight = 10
+    getMenuButtonRect() {
+        if (!wx.getMenuButtonBoundingClientRect) return null;
 
-        ctx.fillStyle = color
-
-        for (let i = 0; i < weight; i++) {
-            ctx.fillRect(x, bottomY - i * blockHeight, 40, blockHeight - 1)
+        try {
+            return wx.getMenuButtonBoundingClientRect();
+        } catch (err) {
+            console.warn("[Main] getMenuButtonBoundingClientRect failed:", err);
+            return null;
         }
     }
 }

@@ -1,6 +1,7 @@
 // js/core/gamecontroller.js
 
 const config = require("./config")
+const goodsFactory = require("./goodsFactory")
 
 class GameController {
   constructor() {
@@ -10,6 +11,9 @@ class GameController {
     //基础状态
     this.state = "ready" //ready|running|success|fail
     this.balanceState = "normal" //normal|critical|unbalanced
+    this.failReason = null //timeout|unbalanced|null
+    this.feedbackEvent = null
+    this.feedbackEvents = []
 
     //数值
     this.leftWeight = 0
@@ -17,10 +21,16 @@ class GameController {
     this.totalValue = 0
     this.timeLeft = config.level.timeLimitSec
     this.unbalanceLeft = 0
+    this.diff = 0
 
     //生成相关
     this.spawnTimer = 0
     this.currentGood = null
+    this.leftGoods = []
+    this.rightGoods = []
+    this.lastPlacedGood = null
+
+    goodsFactory.resetGoodUid()
   }
 
   start() {
@@ -42,7 +52,7 @@ class GameController {
     this.spawnTimer += dt
     if (!this.currentGood && this.spawnTimer >= config.spawn.intervalSec) {
       this.spawnTimer = 0
-      this.currentGood = this.generateGood()
+      this.currentGood = goodsFactory.createGood()
       console.log("生成货物", this.currentGood)
     }
 
@@ -53,12 +63,28 @@ class GameController {
   handleTap(side) {
     if (this.state !== "running") return
     if (!this.currentGood) return
+    if (side !== "left" && side !== "right") return
+
+    const good = this.currentGood
+
     if (side === "left") {
-      this.leftWeight += this.currentGood.weight
+      this.leftGoods.push(good)
+      this.leftWeight += good.weight
     } else {
-      this.rightWeight += this.currentGood.weight
+      this.rightGoods.push(good)
+      this.rightWeight += good.weight
     }
-    this.totalValue += this.currentGood.value
+
+    this.totalValue += good.value
+    this.lastPlacedGood = {
+      side,
+      good,
+    }
+    this.pushFeedback({
+      type: "place",
+      side,
+      good,
+    })
 
     console.log(
       `放置到${side}`,
@@ -68,62 +94,98 @@ class GameController {
     )
     this.currentGood = null
 
-    //达成目标立即成功
-    if (this.totalValue >= config.level.targetValue) {
+    this.updateBalance(0)
+
+    //达成目标时必须仍处于可接受平衡范围
+    if (this.totalValue >= config.level.targetValue && this.isBalanced()) {
       this.state = "success"
+      this.pushFeedback({
+        type: "success",
+      })
       console.log("成功通关！")
     }
   }
 
   updateBalance(dt) {
-    const diff = Math.abs(this.leftWeight - this.rightWeight)
+    this.diff = Math.abs(this.leftWeight - this.rightWeight)
 
-    if (diff >= config.level.threshold) {
+    if (this.diff >= config.level.threshold) {
       //进入失衡
       if (this.balanceState !== "unbalanced") {
         this.unbalanceLeft = config.level.rescueSec
+        this.pushFeedback({
+          type: "unbalanced",
+          rescueSec: this.unbalanceLeft,
+        })
       }
       this.balanceState = "unbalanced"
       this.unbalanceLeft -= dt
 
       if (this.unbalanceLeft <= 0) {
-        this.state = "fail"
-        console.log("失衡失败")
+        this.fail("unbalanced")
       }
     } else {
+      const prevBalanceState = this.balanceState
+
       //未失衡
-      if (diff <= config.balanceHint.perfectDiff) {
+      if (this.diff <= config.balanceHint.perfectDiff) {
         this.balanceState = "perfect"
-      } else if (diff >= config.balanceHint.criticalDiff) {
+      } else if (this.diff >= config.balanceHint.criticalDiff) {
         this.balanceState = "critical"
       } else {
         this.balanceState = "normal"
       }
       this.unbalanceLeft = 0
+
+      if (prevBalanceState !== this.balanceState) {
+        this.pushFeedback({
+          type: this.balanceState,
+          diff: this.diff,
+        })
+      }
     }
   }
 
   checkTimeUp() {
-    if (this.totalValue >= config.level.targetValue && this.balanceState !== "unbalanced") {
+    this.timeLeft = 0
+    this.updateBalance(0)
+
+    if (this.totalValue >= config.level.targetValue && this.isBalanced()) {
       this.state = "success"
+      this.pushFeedback({
+        type: "success",
+      })
       console.log("时间到，成功通关")
     } else {
-      this.state = "fail"
+      this.fail(this.totalValue >= config.level.targetValue ? "unbalanced" : "timeout")
       console.log("时间到，失败")
     }
   }
 
-  generateGood() {
-    const pool = config.goodsPool
-    const totalWeight = pool.reduce((sum, g) => sum + g.prob, 0)
-    const rand = Math.random() * totalWeight
+  isBalanced() {
+    return this.diff < config.level.threshold
+  }
 
-    let acc = 0
-    for (let g of pool) {
-      acc += g.prob
-      if (rand <= acc) return g
-    }
-    return pool[0]
+  fail(reason) {
+    if (this.state === "fail") return
+
+    this.state = "fail"
+    this.failReason = reason
+    this.pushFeedback({
+      type: "fail",
+      reason,
+    })
+  }
+
+  pushFeedback(event) {
+    this.feedbackEvent = event
+    this.feedbackEvents.push(event)
+  }
+
+  consumeFeedbackEvents() {
+    const events = this.feedbackEvents
+    this.feedbackEvents = []
+    return events
   }
 }
 
