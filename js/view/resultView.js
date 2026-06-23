@@ -3,8 +3,9 @@
 const config = require("../core/config")
 
 class ResultView {
-  render(ctx, controller, width, height) {
+  render(ctx, controller, width, height, visible = true) {
     if (controller.state !== "success" && controller.state !== "fail") return
+    if (!visible) return
 
     ctx.fillStyle = "rgba(12, 14, 18, 0.78)"
     ctx.fillRect(0, 0, width, height)
@@ -13,7 +14,7 @@ class ResultView {
     const title = isSuccess ? "通关成功" : "挑战失败"
     const detail = isSuccess ? "货物价值达标" : this.getFailText(controller.failReason)
     const panelWidth = Math.min(300, width - 40)
-    const panelHeight = 230
+    const panelHeight = 248
     const panelX = (width - panelWidth) / 2
     const panelY = height / 2 - panelHeight / 2
 
@@ -46,12 +47,56 @@ class ResultView {
       panelY + 145
     )
 
-    ctx.fillStyle = "#2d3944"
-    ctx.fillRect(width / 2 - 88, panelY + 171, 176, 38)
+    this.drawButton(ctx, panelX + 22, panelY + 180, 116, 42, "查看现场", "#344756")
+    this.drawButton(ctx, panelX + panelWidth - 138, panelY + 180, 116, 42, "再来一局", "#3e6b45")
+    ctx.textAlign = "left"
+  }
+
+  drawButton(ctx, x, y, width, height, text, color) {
+    ctx.fillStyle = color
+    ctx.fillRect(x, y, width, height)
+
+    ctx.strokeStyle = "rgba(244, 240, 223, 0.35)"
+    ctx.lineWidth = 2
+    ctx.strokeRect(x, y, width, height)
+
     ctx.fillStyle = "#f4f0df"
     ctx.font = "16px Arial"
-    ctx.fillText("点击任意位置再来一局", width / 2, panelY + 190)
-    ctx.textAlign = "left"
+    ctx.textAlign = "center"
+    ctx.textBaseline = "middle"
+    ctx.fillText(text, x + width / 2, y + height / 2)
+  }
+
+  hitTest(x, y, width, height) {
+    const panelWidth = Math.min(300, width - 40)
+    const panelHeight = 248
+    const panelX = (width - panelWidth) / 2
+    const panelY = height / 2 - panelHeight / 2
+    const viewButton = {
+      x: panelX + 22,
+      y: panelY + 180,
+      width: 116,
+      height: 42,
+    }
+    const restartButton = {
+      x: panelX + panelWidth - 138,
+      y: panelY + 180,
+      width: 116,
+      height: 42,
+    }
+
+    if (this.isInside(x, y, viewButton)) return "viewScene"
+    if (this.isInside(x, y, restartButton)) return "restart"
+    return null
+  }
+
+  isInside(x, y, rect) {
+    return (
+      x >= rect.x &&
+      x <= rect.x + rect.width &&
+      y >= rect.y &&
+      y <= rect.y + rect.height
+    )
   }
 
   getFailText(reason) {

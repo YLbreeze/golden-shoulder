@@ -36,8 +36,8 @@ class Hud {
     ctx.textBaseline = "middle"
     ctx.lineWidth = 5
     ctx.strokeStyle = "#101214"
-    ctx.strokeText("扛麦郎", width / 2, titleY)
-    ctx.fillText("扛麦郎", width / 2, titleY)
+    ctx.strokeText("黄金扛工", width / 2, titleY)
+    ctx.fillText("黄金扛工", width / 2, titleY)
     ctx.textAlign = "left"
   }
 

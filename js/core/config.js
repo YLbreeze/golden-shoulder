@@ -4,11 +4,11 @@
 const config = {
   //关卡参数（MVP单关）
   level: {
-    targetValue: 1000,
-    timeLimitSec: 26,
+    targetValue: 1500,
+    timeLimitSec: 41,
 
     //平衡机制参数：失衡判定 abs(lw-rw)>=threshold，进入失衡状态
-    threshold: 5,
+    threshold: 4,
     rescueSec: 2, //失衡救回时间
   },
 
@@ -24,7 +24,7 @@ const config = {
     //完美平衡 abs(diff)<=perfectDiff
     perfectDiff: 1,
     //临界提示 abs(diff)>=criticalDiff
-    criticalDiff: 4,
+    criticalDiff: 3,
   },
 
   //货物池 weight质量，value价值，prob出现概率
@@ -32,22 +32,36 @@ const config = {
       id: "rect",
       name: "长方形",
       weight: 3,
-      value: 100,
-      prob: 40
+      value: 60,
+      prob: 25
     },
     {
       id: "square",
       name: "正方形",
       weight: 2,
-      value: 25,
-      prob: 40
+      value: 35,
+      prob: 25
     },
     {
       id: "trapezo",
       name: "梯形",
       weight: 1,
-      value: 50,
-      prob: 20
+      value: 20,
+      prob: 15
+    },
+    {
+      id: "gold",
+      name: "金块",
+      weight: 4,
+      value: 120,
+      prob: 10
+    },
+    {
+      id: "stone",
+      name: "石头",
+      weight: 4,
+      value: 15,
+      prob: 25
     },
   ],
 
@@ -58,7 +72,7 @@ const config = {
 
   //音效配置。后续替换同名文件即可换正式音效。
   audio: {
-    enabled: true,
+    enabled: false,
     volume: 0.55,
     sources: {
       place: "audio/place.wav",

@@ -191,6 +191,23 @@ class FeedbackView {
       ctx.lineTo(x, y + size * 0.8)
       ctx.closePath()
       ctx.fill()
+    } else if (good.id === "gold") {
+      ctx.beginPath()
+      ctx.moveTo(x + size / 2, y)
+      ctx.lineTo(x + size, y + size / 2)
+      ctx.lineTo(x + size / 2, y + size)
+      ctx.lineTo(x, y + size / 2)
+      ctx.closePath()
+      ctx.fill()
+    } else if (good.id === "stone") {
+      ctx.beginPath()
+      ctx.moveTo(x + 8, y + 4)
+      ctx.lineTo(x + size - 6, y + 10)
+      ctx.lineTo(x + size - 2, y + size - 10)
+      ctx.lineTo(x + 12, y + size)
+      ctx.lineTo(x + 2, y + size * 0.45)
+      ctx.closePath()
+      ctx.fill()
     } else {
       ctx.fillRect(x, y, size, size)
     }
@@ -205,6 +222,8 @@ class FeedbackView {
   getGoodColor(id) {
     if (id === "rect") return "#e7bd55"
     if (id === "trapezo") return "#d97755"
+    if (id === "gold") return "#f0d35e"
+    if (id === "stone") return "#8d9299"
     return "#79b6d9"
   }
 

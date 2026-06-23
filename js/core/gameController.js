@@ -26,6 +26,7 @@ class GameController {
     //生成相关
     this.spawnTimer = 0
     this.currentGood = null
+    this.placeCooldownLeft = 0
     this.leftGoods = []
     this.rightGoods = []
     this.lastPlacedGood = null
@@ -36,11 +37,14 @@ class GameController {
   start() {
     this.reset()
     this.state = "running"
+    this.spawnGood()
     console.log("Game Started")
   }
 
   tick(dt) {
     if (this.state !== "running") return
+
+    this.placeCooldownLeft = Math.max(0, this.placeCooldownLeft - dt)
 
     //更新总倒计时
     this.timeLeft -= dt
@@ -51,9 +55,7 @@ class GameController {
     //生成货物
     this.spawnTimer += dt
     if (!this.currentGood && this.spawnTimer >= config.spawn.intervalSec) {
-      this.spawnTimer = 0
-      this.currentGood = goodsFactory.createGood()
-      console.log("生成货物", this.currentGood)
+      this.spawnGood()
     }
 
     //更新平衡状态
@@ -63,6 +65,7 @@ class GameController {
   handleTap(side) {
     if (this.state !== "running") return
     if (!this.currentGood) return
+    if (this.placeCooldownLeft > 0) return
     if (side !== "left" && side !== "right") return
 
     const good = this.currentGood
@@ -93,6 +96,7 @@ class GameController {
       "V:", this.totalValue
     )
     this.currentGood = null
+    this.placeCooldownLeft = config.spawn.dropAnimSec
 
     this.updateBalance(0)
 
@@ -103,7 +107,15 @@ class GameController {
         type: "success",
       })
       console.log("成功通关！")
+    } else if (this.state === "running") {
+      this.spawnGood()
     }
+  }
+
+  spawnGood() {
+    this.spawnTimer = 0
+    this.currentGood = goodsFactory.createGood()
+    console.log("生成货物", this.currentGood)
   }
 
   updateBalance(dt) {

@@ -22,9 +22,12 @@ export default class Main {
         this.feedbackView = new FeedbackView();
         this.resultView = new ResultView();
         this.soundManager = new SoundManager();
+        this.resultOverlayVisible = true;
         this.controller.start();
 
         this.lastTime = Date.now();
+        this.isActive = true;
+        this.bindLifecycle();
 
         // 绑定触摸（避免 this 丢失）
         wx.onTouchStart(this.onTouchStart.bind(this));
@@ -36,27 +39,66 @@ export default class Main {
 
     gameLoop() {
         const now = Date.now();
-        const dt = (now - this.lastTime) / 1000;
+        const dt = Math.min((now - this.lastTime) / 1000, 0.1);
         this.lastTime = now;
 
-        this.controller.tick(dt);
-        this.dispatchFeedbackEvents(dt);
+        if (this.isActive) {
+            this.controller.tick(dt);
+            this.dispatchFeedbackEvents(dt);
+        }
 
         this.render()
 
         requestAnimationFrame(this.gameLoop);
     }
 
+    bindLifecycle() {
+        if (wx.onHide) {
+            wx.onHide(() => {
+                this.isActive = false;
+            });
+        }
+
+        if (wx.onShow) {
+            wx.onShow(() => {
+                this.isActive = true;
+                this.lastTime = Date.now();
+            });
+        }
+    }
+
     onTouchStart(e) {
         if (this.controller.state === "success" || this.controller.state === "fail") {
-            this.controller.start();
-            this.feedbackView.reset();
+            this.handleResultTouch(e.touches[0].clientX, e.touches[0].clientY);
             return;
         }
 
         const x = e.touches[0].clientX;
         this.controller.handleTap(x < this.screenWidth / 2 ? "left" : "right");
         this.dispatchFeedbackEvents(0);
+    }
+
+    handleResultTouch(x, y) {
+        if (!this.resultOverlayVisible) {
+            this.resultOverlayVisible = true;
+            return;
+        }
+
+        const action = this.resultView.hitTest(x, y, this.screenWidth, this.screenHeight);
+        if (action === "viewScene") {
+            this.resultOverlayVisible = false;
+            return;
+        }
+
+        if (action === "restart") {
+            this.restartGame();
+        }
+    }
+
+    restartGame() {
+        this.controller.start();
+        this.feedbackView.reset();
+        this.resultOverlayVisible = true;
     }
 
     dispatchFeedbackEvents(dt) {
@@ -106,7 +148,7 @@ export default class Main {
 
         this.feedbackView.render(ctx, w, h)
         this.hud.render(ctx, c, w)
-        this.resultView.render(ctx, c, w, h)
+        this.resultView.render(ctx, c, w, h, this.resultOverlayVisible)
     }
 
     getMenuButtonRect() {
