@@ -1,7 +1,5 @@
 // js/view/hud.js
 
-const config = require("../core/config")
-
 class Hud {
   render(ctx, controller, width) {
     this.drawTopBar(ctx, controller, width)
@@ -19,11 +17,15 @@ class Hud {
     ctx.font = "16px Arial"
     ctx.textBaseline = "top"
     ctx.fillText(`时间 ${Math.ceil(controller.timeLeft)}s`, 18, topY)
-    ctx.fillText(`目标 ${config.level.targetValue}`, 18, topY + 24)
+    ctx.fillText(`目标 ${controller.level.targetValue}`, 18, topY + 24)
     ctx.fillText(`价值 ${controller.totalValue}`, 18, topY + 48)
 
     ctx.textAlign = "right"
-    ctx.fillText(`阈值 ${config.level.threshold}`, width - 18, topY)
+    ctx.fillText(
+      `${controller.currentLevelIndex + 1}/${controller.totalLevels}关 · 阈值${controller.level.threshold}`,
+      width - 18,
+      topY
+    )
     ctx.textAlign = "left"
   }
 

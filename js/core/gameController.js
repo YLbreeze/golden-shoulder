@@ -4,13 +4,16 @@ const config = require("./config")
 const goodsFactory = require("./goodsFactory")
 
 class GameController {
-  constructor() {
+  constructor(level = config.levels[0], currentLevelIndex = 0, totalLevels = 1) {
+    this.level = level
+    this.currentLevelIndex = currentLevelIndex
+    this.totalLevels = totalLevels
     this.reset()
   }
   reset() {
     //基础状态
     this.state = "ready" //ready|running|success|fail
-    this.balanceState = "normal" //normal|critical|unbalanced
+    this.balanceState = "perfect" //perfect|normal|critical|unbalanced
     this.failReason = null //timeout|unbalanced|null
     this.feedbackEvent = null
     this.feedbackEvents = []
@@ -19,7 +22,7 @@ class GameController {
     this.leftWeight = 0
     this.rightWeight = 0
     this.totalValue = 0
-    this.timeLeft = config.level.timeLimitSec
+    this.timeLeft = this.level.timeLimitSec
     this.unbalanceLeft = 0
     this.diff = 0
 
@@ -34,11 +37,22 @@ class GameController {
     goodsFactory.resetGoodUid()
   }
 
-  start() {
+  start(
+    level = this.level,
+    currentLevelIndex = this.currentLevelIndex,
+    totalLevels = this.totalLevels
+  ) {
+    this.level = level
+    this.currentLevelIndex = currentLevelIndex
+    this.totalLevels = totalLevels
     this.reset()
     this.state = "running"
     this.spawnGood()
-    console.log("Game Started")
+    this.pushFeedback({
+      type: "levelStart",
+      text: `第${this.currentLevelIndex + 1}关 ${this.level.tip}`,
+    })
+    console.log("Game Started", this.level.name)
   }
 
   tick(dt) {
@@ -83,10 +97,12 @@ class GameController {
       side,
       good,
     }
+    const sideCount = side === "left" ? this.leftGoods.length : this.rightGoods.length
     this.pushFeedback({
       type: "place",
       side,
       good,
+      sideCount,
     })
 
     console.log(
@@ -101,7 +117,7 @@ class GameController {
     this.updateBalance(0)
 
     //达成目标时必须仍处于可接受平衡范围
-    if (this.totalValue >= config.level.targetValue && this.isBalanced()) {
+    if (this.totalValue >= this.level.targetValue && this.isBalanced()) {
       this.state = "success"
       this.pushFeedback({
         type: "success",
@@ -114,17 +130,17 @@ class GameController {
 
   spawnGood() {
     this.spawnTimer = 0
-    this.currentGood = goodsFactory.createGood()
+    this.currentGood = goodsFactory.createGood(this.level.goodsPool)
     console.log("生成货物", this.currentGood)
   }
 
   updateBalance(dt) {
     this.diff = Math.abs(this.leftWeight - this.rightWeight)
 
-    if (this.diff >= config.level.threshold) {
+    if (this.diff >= this.level.threshold) {
       //进入失衡
       if (this.balanceState !== "unbalanced") {
-        this.unbalanceLeft = config.level.rescueSec
+        this.unbalanceLeft = this.level.rescueSec
         this.pushFeedback({
           type: "unbalanced",
           rescueSec: this.unbalanceLeft,
@@ -140,9 +156,9 @@ class GameController {
       const prevBalanceState = this.balanceState
 
       //未失衡
-      if (this.diff <= config.balanceHint.perfectDiff) {
+      if (this.diff <= this.level.perfectDiff) {
         this.balanceState = "perfect"
-      } else if (this.diff >= config.balanceHint.criticalDiff) {
+      } else if (this.diff >= this.level.criticalDiff) {
         this.balanceState = "critical"
       } else {
         this.balanceState = "normal"
@@ -162,20 +178,24 @@ class GameController {
     this.timeLeft = 0
     this.updateBalance(0)
 
-    if (this.totalValue >= config.level.targetValue && this.isBalanced()) {
+    if (this.totalValue >= this.level.targetValue && this.isBalanced()) {
       this.state = "success"
       this.pushFeedback({
         type: "success",
       })
       console.log("时间到，成功通关")
     } else {
-      this.fail(this.totalValue >= config.level.targetValue ? "unbalanced" : "timeout")
+      this.fail(this.totalValue >= this.level.targetValue ? "unbalanced" : "timeout")
       console.log("时间到，失败")
     }
   }
 
   isBalanced() {
-    return this.diff < config.level.threshold
+    return this.diff < this.level.threshold
+  }
+
+  isLastLevel() {
+    return this.currentLevelIndex >= this.totalLevels - 1
   }
 
   fail(reason) {

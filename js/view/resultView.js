@@ -1,7 +1,5 @@
 // js/view/resultView.js
 
-const config = require("../core/config")
-
 class ResultView {
   render(ctx, controller, width, height, visible = true) {
     if (controller.state !== "success" && controller.state !== "fail") return
@@ -11,10 +9,15 @@ class ResultView {
     ctx.fillRect(0, 0, width, height)
 
     const isSuccess = controller.state === "success"
-    const title = isSuccess ? "通关成功" : "挑战失败"
-    const detail = isSuccess ? "货物价值达标" : this.getFailText(controller.failReason)
+    const isCampaignComplete = isSuccess && controller.isLastLevel()
+    const title = isCampaignComplete ? "全部通关" : isSuccess ? "通关成功" : "挑战失败"
+    const detail = isCampaignComplete
+      ? "五个教学关已完成"
+      : isSuccess
+        ? `${controller.level.name} 完成`
+        : this.getFailText(controller.failReason)
     const panelWidth = Math.min(300, width - 40)
-    const panelHeight = 248
+    const panelHeight = 176
     const panelX = (width - panelWidth) / 2
     const panelY = height / 2 - panelHeight / 2
 
@@ -35,20 +38,16 @@ class ResultView {
     ctx.font = "20px Arial"
     ctx.fillText(detail, width / 2, panelY + 78)
 
-    ctx.font = "17px Arial"
-    ctx.fillText(
-      `价值 ${controller.totalValue} / ${config.level.targetValue}`,
-      width / 2,
-      panelY + 116
+    this.drawButton(ctx, panelX + 22, panelY + 108, 116, 42, "查看现场", "#344756")
+    this.drawButton(
+      ctx,
+      panelX + panelWidth - 138,
+      panelY + 108,
+      116,
+      42,
+      this.getPrimaryButtonText(controller),
+      "#3e6b45"
     )
-    ctx.fillText(
-      `左担 ${controller.leftWeight}    右担 ${controller.rightWeight}`,
-      width / 2,
-      panelY + 145
-    )
-
-    this.drawButton(ctx, panelX + 22, panelY + 180, 116, 42, "查看现场", "#344756")
-    this.drawButton(ctx, panelX + panelWidth - 138, panelY + 180, 116, 42, "再来一局", "#3e6b45")
     ctx.textAlign = "left"
   }
 
@@ -67,27 +66,37 @@ class ResultView {
     ctx.fillText(text, x + width / 2, y + height / 2)
   }
 
-  hitTest(x, y, width, height) {
+  hitTest(x, y, width, height, controller) {
     const panelWidth = Math.min(300, width - 40)
-    const panelHeight = 248
+    const panelHeight = 176
     const panelX = (width - panelWidth) / 2
     const panelY = height / 2 - panelHeight / 2
     const viewButton = {
       x: panelX + 22,
-      y: panelY + 180,
+      y: panelY + 108,
       width: 116,
       height: 42,
     }
     const restartButton = {
       x: panelX + panelWidth - 138,
-      y: panelY + 180,
+      y: panelY + 108,
       width: 116,
       height: 42,
     }
 
     if (this.isInside(x, y, viewButton)) return "viewScene"
-    if (this.isInside(x, y, restartButton)) return "restart"
+    if (this.isInside(x, y, restartButton)) return this.getPrimaryAction(controller)
     return null
+  }
+
+  getPrimaryButtonText(controller) {
+    if (controller.state !== "success") return "再来一局"
+    return controller.isLastLevel() ? "从头再来" : "下一关"
+  }
+
+  getPrimaryAction(controller) {
+    if (controller.state !== "success") return "restart"
+    return controller.isLastLevel() ? "restartCampaign" : "nextLevel"
   }
 
   isInside(x, y, rect) {

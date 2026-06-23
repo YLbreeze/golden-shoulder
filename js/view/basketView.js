@@ -1,12 +1,14 @@
 // js/view/basketView.js
 
+const basketLayout = require("./basketLayout")
+
 class BasketView {
   render(ctx, controller, width, height, topOffset = 130) {
     this.drawStage(ctx, width, height, topOffset)
     this.drawCurrentGood(ctx, controller.currentGood, width, topOffset)
     this.drawCarrier(ctx, width, height, controller)
-    this.drawBasket(ctx, controller.leftGoods, 32, height - 72, "left")
-    this.drawBasket(ctx, controller.rightGoods, width - 152, height - 72, "right")
+    this.drawBasket(ctx, controller.leftGoods, controller.leftWeight, "left", width, height)
+    this.drawBasket(ctx, controller.rightGoods, controller.rightWeight, "right", width, height)
   }
 
   drawStage(ctx, width, height, topOffset) {
@@ -245,26 +247,41 @@ class BasketView {
     return 1
   }
 
-  drawBasket(ctx, goods, x, bottomY, side) {
-    const basketWidth = 120
-    const basketHeight = 54
+  drawBasket(ctx, goods, totalWeight, side, width, height) {
+    const basket = basketLayout.getBasketRect(side, width, height)
+    const visible = basketLayout.getVisibleGoods(goods)
 
     ctx.strokeStyle = side === "left" ? "#6fb16c" : "#6aa2d8"
     ctx.lineWidth = 4
-    ctx.strokeRect(x, bottomY - basketHeight, basketWidth, basketHeight)
+    ctx.strokeRect(basket.x, basket.y, basket.width, basket.height)
+
+    ctx.fillStyle = "rgba(18, 22, 26, 0.72)"
+    ctx.fillRect(basket.x + 2, basket.y + 2, basket.width - 4, basket.height - 4)
+    ctx.fillStyle = "#f4f0df"
+    ctx.font = "17px Arial"
+    ctx.textAlign = "center"
+    ctx.textBaseline = "middle"
+    ctx.fillText(`重量 ${totalWeight}`, basket.x + basket.width / 2, basket.y + basket.height / 2)
 
     ctx.fillStyle = "#d9d2bd"
     ctx.font = "15px Arial"
     ctx.textBaseline = "top"
     ctx.textAlign = "center"
-    ctx.fillText(side === "left" ? "左担" : "右担", x + basketWidth / 2, bottomY + 8)
+    const label = visible.hiddenCount > 0
+      ? `${side === "left" ? "左担" : "右担"} +${visible.hiddenCount}`
+      : side === "left" ? "左担" : "右担"
+    ctx.fillText(label, basket.x + basket.width / 2, basket.bottomY + 8)
 
-    let cursorY = bottomY - basketHeight - 10
-    for (let i = goods.length - 1; i >= 0; i--) {
-      const good = goods[i]
-      this.drawGood(ctx, good, x + 36, cursorY - 24, 48, false)
-      cursorY -= 28
-      if (cursorY < 214) break
+    for (let i = 0; i < visible.goods.length; i++) {
+      const good = visible.goods[i]
+      const slotIndex = (visible.hiddenCount + i) % basketLayout.MAX_VISIBLE_GOODS
+      const pose = basketLayout.getItemPose(slotIndex, basket, good.uid)
+
+      ctx.save()
+      ctx.translate(pose.x, pose.y)
+      ctx.rotate(pose.rotation)
+      this.drawGood(ctx, good, -pose.size / 2, -pose.size / 2, pose.size, false)
+      ctx.restore()
     }
     ctx.textAlign = "left"
   }

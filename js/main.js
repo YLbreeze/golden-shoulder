@@ -1,6 +1,8 @@
 // js/main.js
 
 const GameController = require("./core/gameController");
+const config = require("./core/config");
+const ProgressManager = require("./core/progressManager");
 const Hud = require("./view/hud");
 const BasketView = require("./view/basketView");
 const FeedbackView = require("./view/feedbackView");
@@ -16,7 +18,14 @@ export default class Main {
         this.ctx = this.canvas.getContext('2d')
         this.setupCanvas()
 
-        this.controller = new GameController();
+        this.progressManager = new ProgressManager();
+        this.progress = this.progressManager.load(config.levels.length);
+        this.currentLevelIndex = this.progress.currentLevelIndex;
+        this.controller = new GameController(
+            config.levels[this.currentLevelIndex],
+            this.currentLevelIndex,
+            config.levels.length
+        );
         this.hud = new Hud();
         this.basketView = new BasketView();
         this.feedbackView = new FeedbackView();
@@ -84,7 +93,13 @@ export default class Main {
             return;
         }
 
-        const action = this.resultView.hitTest(x, y, this.screenWidth, this.screenHeight);
+        const action = this.resultView.hitTest(
+            x,
+            y,
+            this.screenWidth,
+            this.screenHeight,
+            this.controller
+        );
         if (action === "viewScene") {
             this.resultOverlayVisible = false;
             return;
@@ -92,17 +107,42 @@ export default class Main {
 
         if (action === "restart") {
             this.restartGame();
+        } else if (action === "nextLevel") {
+            this.startLevel(this.currentLevelIndex + 1);
+        } else if (action === "restartCampaign") {
+            this.progress = this.progressManager.reset();
+            this.startLevel(0);
         }
     }
 
     restartGame() {
-        this.controller.start();
+        this.startLevel(this.currentLevelIndex);
+    }
+
+    startLevel(levelIndex) {
+        const safeIndex = Math.max(0, Math.min(levelIndex, config.levels.length - 1));
+        this.currentLevelIndex = safeIndex;
+        this.progressManager.saveCurrentLevel(safeIndex, config.levels.length);
+        this.controller.start(
+            config.levels[safeIndex],
+            safeIndex,
+            config.levels.length
+        );
         this.feedbackView.reset();
         this.resultOverlayVisible = true;
     }
 
     dispatchFeedbackEvents(dt) {
         const feedbackEvents = this.controller.consumeFeedbackEvents();
+
+        for (const event of feedbackEvents) {
+            if (event.type === "success") {
+                this.progress = this.progressManager.completeLevel(
+                    this.currentLevelIndex,
+                    config.levels.length
+                );
+            }
+        }
 
         this.feedbackView.update(
             dt,

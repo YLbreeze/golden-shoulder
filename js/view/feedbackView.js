@@ -1,6 +1,7 @@
 // js/view/feedbackView.js
 
 const config = require("../core/config")
+const basketLayout = require("./basketLayout")
 
 class FeedbackView {
   constructor() {
@@ -27,6 +28,8 @@ class FeedbackView {
     for (const event of events) {
       if (event.type === "place") {
         this.addPlaceFeedback(event, width, height, topOffset)
+      } else if (event.type === "levelStart") {
+        this.addCenterHint(event.text, "#f1c15d", 1.8, width, height)
       } else if (event.type === "perfect") {
         this.addCenterHint("完美平衡", "#b7f0a1", 0.65, width, height)
       } else if (event.type === "critical") {
@@ -84,8 +87,15 @@ class FeedbackView {
     const isLeft = event.side === "left"
     const startX = width / 2
     const startY = topOffset + 70
-    const endX = isLeft ? width * 0.25 : width * 0.75
-    const endY = height - 162
+    const landingPose = basketLayout.getLandingPose(
+      event.side,
+      event.sideCount,
+      width,
+      height,
+      event.good.uid
+    )
+    const endX = landingPose.x
+    const endY = landingPose.y
     const dropDuration = config.spawn.dropAnimSec
 
     this.flyingGoods.push({
@@ -94,6 +104,8 @@ class FeedbackView {
       startY,
       endX,
       endY,
+      endRotation: landingPose.rotation,
+      endScale: landingPose.size / 48,
       time: dropDuration,
       duration: dropDuration,
     })
@@ -166,10 +178,12 @@ class FeedbackView {
       const arc = Math.sin(progress * Math.PI) * -34
       const x = this.lerp(item.startX, item.endX, eased)
       const y = this.lerp(item.startY, item.endY, eased) + arc
-      const scale = 1 - progress * 0.18
+      const scale = this.lerp(1, item.endScale, eased)
+      const rotation = this.lerp(0, item.endRotation, eased)
 
       ctx.save()
       ctx.translate(x, y)
+      ctx.rotate(rotation)
       ctx.scale(scale, scale)
       this.drawGood(ctx, item.good, -24, -24, 48)
       ctx.restore()

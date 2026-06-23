@@ -17,7 +17,7 @@ function pickFromPool(pool) {
   return pool[0]
 }
 
-function createGood(pool = config.goodsPool) {
+function createGood(pool = config.levels[0].goodsPool) {
   const template = pickFromPool(pool)
 
   return {
